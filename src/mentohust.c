@@ -95,7 +95,7 @@ static void sig_handle(int sig)
 {
 	if (sig == SIGALRM)	 /* 定时器 */
 	{
-		if (-1 == switchState(state))
+		if (-1 == switchState(state) && state != ID_IDENTITY)
 		{
 			pcap_breakloop(hPcap);
 			printf(_("!! 发送数据包失败, 请检查网络连接！\n"));
@@ -116,6 +116,7 @@ static void sig_handle(int sig)
 
 static void pcap_handle(u_char *user, const struct pcap_pkthdr *h, const u_char *buf)
 {
+	dumpHex(buf, h->len, 0);
 	static unsigned failCount = 0;
 #ifndef NO_ARP
 	if (buf[0x0c]==0x88 && buf[0x0d]==0x8e) {
@@ -123,18 +124,25 @@ static void pcap_handle(u_char *user, const struct pcap_pkthdr *h, const u_char 
 		if (memcmp(destMAC, buf+6, 6)!=0 && startMode>2)	/* 服务器MAC地址不符 */
 			return;
 		capBuf = buf;
-		if (buf[0x0F]==0x00 && buf[0x12]==0x01 && buf[0x16]==0x01) {	/* 验证用户名 */
+		if (buf[0x0F]==0x00 && buf[0x12]==0x01 && buf[0x16]==0x01) {	
+			/* 验证用户名 */
+			puts(">> Name Request");
 			if (startMode < 3) {
 				memcpy(destMAC, buf+6, 6);
 				printf(_("** 认证MAC:\t%s\n"), formatHex(destMAC, 6));
 				startMode += 3;	/* 标记为已获取 */
 			}
-			if (startMode==3 && memcmp(buf+0x17, "User name", 9)==0)	/* 塞尔 */
+			if (startMode==3 && memcmp(buf+0x17, "User name", 9)==0) {
+				// 塞尔 
 				startMode = 5;
+			}
 			switchState(ID_IDENTITY);
 		}
-		else if (buf[0x0F]==0x00 && buf[0x12]==0x01 && buf[0x16]==0x04)	/* 验证密码 */
+		else if (buf[0x0F]==0x00 && buf[0x12]==0x01 && buf[0x16]==0x04) {
+			// 验证密码
+			puts(">> Password Request");
 			switchState(ID_CHALLENGE);
+		}
 		else if (buf[0x0F]==0x00 && buf[0x12]==0x03) {	/* 认证成功 */
 			printf(_(">> 认证成功!\n"));
 			failCount = 0;
@@ -146,15 +154,15 @@ static void pcap_handle(u_char *user, const struct pcap_pkthdr *h, const u_char 
 				switchState(ID_DHCP);
 			else if (startMode%3 == 2)
 				switchState(ID_WAITECHO);
-			else
-				switchState(ID_ECHO);
+			// else
+			// 	switchState(ID_ECHO);
 		}
 		else if (buf[0x0F]==0x00 && buf[0x12]==0x01 && buf[0x16]==0x02)	/* 显示赛尔提示信息 */
 			showCernetMsg(buf);
 		else if (buf[0x0F] == 0x05)	/* (赛尔)响应在线 */
 			switchState(ID_ECHO);
 		else if (buf[0x0F]==0x00 && buf[0x12]==0x04) {  /* 认证失败或被踢下线 */
-			if (state==ID_WAITECHO || state==ID_ECHO) {
+			if (state == ID_WAITECHO || state==ID_ECHO || state == ID_IDENTITY) {
 				printf(_(">> 认证掉线，开始重连!\n"));
 				switchState(ID_START);
 			}

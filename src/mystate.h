@@ -25,5 +25,6 @@
 
 int switchState(int type);	/* 改变状态 */
 int restart();	/* 重启认证 */
+void dumpHex(const unsigned char* package, unsigned int len, int isReceivedPackage);
 
 #endif

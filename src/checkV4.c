@@ -451,11 +451,15 @@ char *computePwd(const unsigned char *md5)
     memcpy(tmp + tmpl, md5, 16);
     tmpl += 16;
 
+    // calc the hash of username+md5, then copy to buf.
     memcpy(buf, ComputeHash(tmp, tmpl), 16);
 
     memset(tmp, 0, 16);
     strcpy((char*)tmp, password);
 
+    // for each elem in hash
+    //     hash ^= password
+    // may cause leakage of password???
     int i;
     for (i=0; i<16; ++i)
         buf[i] ^= tmp[i];

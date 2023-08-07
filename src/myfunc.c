@@ -517,6 +517,7 @@ void getEchoKey(const u_char *capBuf)
 }
 
 
+// return md5(id+password+seed)
 u_char *checkPass(u_char id, const u_char *md5Seed, int seedLen)
 {
 	u_char md5Src[80];
